@@ -167,7 +167,7 @@ print('webWindowCallback.requestDataInit');
         that.deleteStageBlocks();
 
         //close web window
-        StageInterface.webWindows.manage.hide();
+        if(StageInterface.webWindows.manage) StageInterface.webWindows.manage.hide();
         
 		//delete managerEntity 
 		Entities.deleteEntity(that.managerEntity);
