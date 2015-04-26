@@ -1,0 +1,306 @@
+<html>
+<head>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+	<script>
+        //UI
+        var elements = {};
+        
+        //events
+        var scriptEventActions = {};
+        scriptEventActions.initData = function(data) {
+            var settings = data.settings || false;
+            if(!settings) return;
+            elements.fieldLevels.val(settings.levels);
+            elements.fieldRadius.val(settings.circle_radius);
+            elements.fieldRotation.val(settings.circle_rotate);
+            elements.fieldLimit.val(settings.circle_limit);
+            elements.fieldBlocks.val(settings.blocks);
+            elements.fieldBlockHeight.val(settings.block_height);
+            elements.fieldBlockDepth.val(settings.block_depth);
+            elements.fieldBlockGapFix.val(settings.block_gapfix);
+            
+            elements.fieldBlockScript.val(settings.block_script);
+            elements.fieldBlockColorRandom.val(settings.block_color_random);
+            elements.fieldBlockColorBase.val(settings.block_color_base);
+            $('#field-blockColorBase-wrapper').toggle(!elements.fieldBlockColorRandom.is(':checked'));
+            
+            //show content
+            $("#loadingWrapper").hide();
+            $("#wrapper").show();
+        };
+        scriptEventActions.preview = function(data) {
+            var blueprint = data.blueprint || false;
+            var options = data.options || false;
+             if(!blueprint || !options) return;
+             preview(options,blueprint);
+        };
+       
+        
+        function scriptEventReceived(data) {
+            switch(data.type){
+                case 'action':
+                    var callback = scriptEventActions[data.action] || false;
+                    if(callback) callback(data);
+                    break
+            }
+        }
+        
+        function init() {
+            if (window.EventBridge === undefined) return;
+
+            EventBridge.scriptEventReceived.connect(function(data) {
+                data = JSON.parse(data);
+                scriptEventReceived(data);
+            });
+            
+            //identify elements
+            elements.fieldRadius = $("#field-radius");
+            elements.fieldLevels = $("#field-levels");
+            elements.fieldRotation = $("#field-rotation");
+            elements.fieldLimit = $("#field-limit");
+            elements.fieldBlocks = $("#field-blocks");
+            elements.fieldBlockHeight = $("#field-blockHeight");
+            elements.fieldBlockDepth = $("#field-blockDepth");
+            elements.fieldBlockGapFix = $("#field-blockGapFix");
+            elements.fieldBlockScript = $("#field-blockScript");
+            elements.fieldBlockColorRandom = $("#field-blockColorRandom");
+            elements.fieldBlockColorBase = $("#field-blockColorBase");
+            
+            
+            elements.btnPreview = $("#button-preview");
+            elements.btnApply = $("#button-apply");
+            elements.btnClear = $("#button-clear");
+            
+            //Attach events to elements
+            elements.btnApply.click(function() {
+                EventBridge.emitWebEvent(JSON.stringify({
+                    type: "action",
+                    action: "apply",
+                    data : collectOptionsForm(),
+                }));
+            });
+            elements.btnPreview.click(function() {
+                EventBridge.emitWebEvent(JSON.stringify({
+                    type: "action",
+                    action: "requestPreview",
+                    data : collectOptionsForm(),
+                }));
+            });
+            elements.btnClear.click(function() {
+                EventBridge.emitWebEvent(JSON.stringify({
+                    type: "action",
+                    action: "clear",
+                    data : {},
+                }));
+            });
+            elements.fieldBlockColorRandom.change(function(){
+                $('#field-blockColorBase-wrapper').toggle(!$(this).is(':checked'));
+            });
+            
+            //request form values
+print('EventBridge.emitWebEvent requestDataInit');
+            EventBridge.emitWebEvent(JSON.stringify({
+                type: "action",
+                action: "requestDataInit",
+            }));
+        }
+        
+        function collectOptionsForm() {
+            var result = {
+                levels: parseInt(elements.fieldLevels.val()),
+                blocks : parseInt(elements.fieldBlocks.val()),
+                circle_radius: parseInt(elements.fieldRadius.val()),
+                circle_limit: parseInt(elements.fieldLimit.val()),
+                circle_rotate: parseInt(elements.fieldRotation.val()),
+                block_height: parseFloat(elements.fieldBlockHeight.val()),
+                block_depth: parseFloat(elements.fieldBlockDepth.val()),
+                block_gapfix: parseFloat(elements.fieldBlockGapFix.val()),
+                block_script: elements.fieldBlockScript.val(),
+                block_color_random: elements.fieldBlockColorRandom.is(':checked'),
+                block_color_base: elements.fieldBlockColorBase.val(),
+            };
+            
+            //validate
+            if(!result.levels) result.levels = 5;
+            if(!result.blocks) result.blocks = 20;
+            if(!result.circle_radius) result.circle_radius = 5;
+            if(!result.block_height) result.block_height = 0.5;
+            if(!result.block_depth) result.block_depth = 2;
+            if(!result.block_gapfix) result.block_gapfix = 0.1;
+            if(!result.block_color_base) result.block_color_base = "#E6E6E6";
+            if(!result.circle_limit || result.circle_limit > 360 || result.circle_limit < 0) result.circle_limit = 180;
+            if(!result.circle_rotate || result.circle_rotate > 360 || result.circle_rotate < 0) result.circle_rotate = 0;
+            
+            
+            //update form
+            scriptEventActions.initData({settings: result});
+            
+            return result;
+        }
+        
+        function colorLuminance(hex, lum) {
+            // validate hex string
+            hex = String(hex).replace(/[^0-9a-f]/gi, '');
+            if (hex.length < 6) {
+                hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+            }
+            lum = lum || 0;
+
+            // convert to decimal and change luminosity
+            var rgb = "#", c, i;
+            for (i = 0; i < 3; i++) {
+                c = parseInt(hex.substr(i*2,2), 16);
+                c = Math.round(Math.min(Math.max(0, c + (c * lum)), 255)).toString(16);
+                rgb += ("00"+c).substr(c.length);
+            }
+
+            return rgb;
+        }
+        function preview(options,blueprint) {
+            var metre2pixel = 10;
+            options.circle_radius *= metre2pixel;
+            options.block_depth *= metre2pixel;
+            options.block_height *= metre2pixel;
+            options.block_gapfix *= metre2pixel;
+
+            //clear 
+            $('#previewWrapper').hide();
+            $('#previewWrapper').empty();
+            
+            //draw center
+            var center = {
+                x : options.circle_radius + ((options.block_depth-options.block_gapfix) * options.levels),
+                y : options.circle_radius + ((options.block_depth-options.block_gapfix) * options.levels),
+            };
+            $('#previewWrapper').css({width:center.x*2,height:center.y*2});
+            $('#previewWrapper').append('<div id="center" style="left: '+ center.x + 'px; top:'+ center.y + 'px;"></div>');
+
+            
+            var blockColor = "#E6E6E6";
+            var blockColorLum = -0.5 / options.levels;
+            for(var i in blueprint) {
+                var level = blueprint[i];
+                
+                //draw blocks
+                for(var j in level.blocs) {
+                    var block = level.blocs[j];
+                    block.proportions.length *= metre2pixel;
+                    block.pointCenter.x = (block.pointCenter.x * metre2pixel) + center.x;
+                    block.pointCenter.y = (block.pointCenter.y * metre2pixel) + center.y;
+                    
+                    $("#previewWrapper").append("<div class='block' style='left:"+ (block.pointCenter.x - block.proportions.length/2) +"px; top:"+ (block.pointCenter.y-options.block_depth/2) +"px; -ms-transform: rotate("+ block.rotationDeg +"deg);  -webkit-transform: rotate("+ block.rotationDeg +"deg);  transform: rotate("+ block.rotationDeg +"deg); width:"+ block.proportions.length +"px; height:"+ options.block_depth +"px; background-color: "+ blockColor +";'></div>");
+                }
+                if(blockColorLum !== 0) blockColor = colorLuminance(blockColor, blockColorLum);
+                
+                //draw points
+//                for(var i in level.points) {
+//                    var point = level.points[i];
+//                    point.x = (point.x * metre2pixel) + center.x;
+//                    point.y = (point.y * metre2pixel) + center.y;;
+//                    
+//                    $("#previewWrapper").append("<div class='point' style='left:"+ (point.x-4) +"px; top:"+ (point.y-1) +"px'></div>");
+//				};
+            }
+            
+            $('#previewWrapper').show();
+        }
+        
+        $(document).ready(function(){
+            init();
+        });
+        
+        
+	</script>
+    <style>
+        #previewWrapper { position: relative; border: 1px solid black; display: none;}
+        #center, .point { position: absolute; height: 6px; width: 6px;}
+        #center { background-color: red; }
+        .point { background-color: black; opacity: 0.4;}
+        .block {  position: absolute; /*height: 12px;*/ background-color: gray; border: 1px solid #000000;}
+        .block:hover { background-color: green !important; z-index: 1000;}
+        #wrapper label span {width: 100px; display: inline-block;}
+        #wrapper label input[type=text] {width: calc( 100% - 120px ); display: inline-block;}
+        #form div:hover {background-color: #efefef;}
+    </style>
+</head>
+<body>
+	<b>Stage Options</b>
+    <div id="loadingWrapper">Loading ...</div>
+    <div id="wrapper" style="display:none;">
+        <div id="form">
+            <div>
+                <label>
+                    <span>Levels:</span>
+                    <input id="field-levels" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Radius:</span>
+                    <input id="field-radius" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Rotation:</span>
+                    <input id="field-rotation" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Limit:</span>
+                    <input id="field-limit" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Blocks:</span>
+                    <input id="field-blocks" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Block Height:</span>
+                    <input id="field-blockHeight" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Block Depth:</span>
+                    <input id="field-blockDepth" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Block Gap Fix:</span>
+                    <input id="field-blockGapFix" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Block Color is Random:</span>
+                    <input id="field-blockColorRandom" type="checkbox" />
+                </label>
+            </div>
+            
+            <div id="field-blockColorBase-wrapper">
+                <label>
+                    <span>Base Block Color:</span>
+                    <input id="field-blockColorBase" type="text" />
+                </label>
+            </div>
+            <div>
+                <label>
+                    <span>Block Script:</span>
+                    <input id="field-blockScript" type="text" />
+                </label>
+            </div>
+            <div>
+                <input id="button-preview" type="button" value="Preview" />
+                <input id="button-apply" type="button" value="Apply" />
+                <input id="button-clear" type="button" value="Clear" />
+            </div>
+        </div>
+        <div id="previewWrapper"></div>
+    </div>
+</body>
