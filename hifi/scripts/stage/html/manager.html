@@ -34,7 +34,16 @@
              if(!blueprint || !options) return;
              preview(options,blueprint);
         };
-       
+        scriptEventActions.applyProgress = function(data) {
+            elements.progress.attr('max', data.total);
+            elements.progress.val(data.identified);
+            $("#progressWrapper").show();
+        };
+        scriptEventActions.applied = function(data) {
+            elements.btnApply.attr('disabled', false);
+            elements.btnClear.attr('disabled', false);
+            $("#progressWrapper").hide();
+        };       
         
         function scriptEventReceived(data) {
             switch(data.type){
@@ -66,13 +75,17 @@
             elements.fieldBlockColorRandom = $("#field-blockColorRandom");
             elements.fieldBlockColorBase = $("#field-blockColorBase");
             
-            
             elements.btnPreview = $("#button-preview");
             elements.btnApply = $("#button-apply");
             elements.btnClear = $("#button-clear");
             
+            elements.progress = $("#progressWrapper progress");
+            
             //Attach events to elements
             elements.btnApply.click(function() {
+                elements.btnApply.attr('disabled', true);
+                elements.btnClear.attr('disabled', true);
+                
                 EventBridge.emitWebEvent(JSON.stringify({
                     type: "action",
                     action: "apply",
@@ -176,7 +189,7 @@ print('EventBridge.emitWebEvent requestDataInit');
             $('#previewWrapper').append('<div id="center" style="left: '+ center.x + 'px; top:'+ center.y + 'px;"></div>');
 
             
-            var blockColor = "#E6E6E6";
+            var blockColor = (options.block_color_random) ? "#E6E6E6" : options.block_color_base;
             var blockColorLum = -0.5 / options.levels;
             for(var i in blueprint) {
                 var level = blueprint[i];
@@ -221,6 +234,8 @@ print('EventBridge.emitWebEvent requestDataInit');
         #wrapper label span {width: 100px; display: inline-block;}
         #wrapper label input[type=text] {width: calc( 100% - 120px ); display: inline-block;}
         #form div:hover {background-color: #efefef;}
+        #progressWrapper {display: none;}
+        #progressWrapper progress { width: calc( 100% - 18px ); margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -300,6 +315,9 @@ print('EventBridge.emitWebEvent requestDataInit');
                 <input id="button-apply" type="button" value="Apply" />
                 <input id="button-clear" type="button" value="Clear" />
             </div>
+        </div>
+        <div id="progressWrapper">
+            <progress max="100" value="0"></progress>
         </div>
         <div id="previewWrapper"></div>
     </div>

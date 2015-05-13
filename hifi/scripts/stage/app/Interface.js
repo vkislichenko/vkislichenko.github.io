@@ -5,7 +5,7 @@
 //
 //  Created by Victor Kislichenko, April 2015
 //
-//  Presents the UI for the stage.js script
+//  Presents the UI for the stage script
 //
 //	Icons downloaded from http://icons8.com/ 
 //
@@ -24,8 +24,6 @@ StageInterface = (function() {
 	};
 
 	var buttonPanelPos = {
-        //center
-//		x :(Window.innerWidth / 2) - (((buttonPropotions.width+buttonsSpacing) * 4) / 2),
         //right
 		x : Window.innerWidth - (buttonPropotions.width+buttonsSpacing)*2,
 		y : Window.innerHeight - (buttonPropotions.height+buttonsSpacing)*2,
@@ -52,8 +50,6 @@ StageInterface = (function() {
                     break;
                 default: break;
             }
-//print('webEventReceived');
-//print(JSON.stringify(data));
         }
     };
     

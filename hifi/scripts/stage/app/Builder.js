@@ -5,7 +5,7 @@
 //
 //  Created by Victor Kislichenko, April 2015
 //
-//  Presents the UI for the stage.js script
+//  Presents the Builder for the stage script
 //
 //	Icons downloaded from http://icons8.com/ 
 //
@@ -164,25 +164,27 @@ StageBuilder = (function() {
         //delete existing blocks
         that.clear();
         
+        
         //second: resize stage floor
-        var managerEntityProperties = Entities.getEntityProperties(StageManager.managerEntity);
-        var managerEntityDimensions = managerEntityProperties.dimensions;
+        var managerEntityDimensions = StageManager.managerEntity.entityProperties.dimensions;
         managerEntityDimensions.x = that.options.circle_radius * 2;
         managerEntityDimensions.z = that.options.circle_radius * 2;
-        Entities.editEntity(StageManager.managerEntity, {dimensions: managerEntityDimensions});
+        StageManager.managerEntity.edit({dimensions: managerEntityDimensions});
+
 
         
         //create blocks
-        var result = [];
         var blueprint = that.calc();
         
         //center
-        var stageEntityProperties = Entities.getEntityProperties(StageManager.managerEntity);
         var center = {
-            x : stageEntityProperties.position.x,
-            y : stageEntityProperties.position.y,
-            z : stageEntityProperties.position.z,
+            x : StageManager.managerEntity.entityProperties.position.x,
+            y : StageManager.managerEntity.entityProperties.position.y,
+            z : StageManager.managerEntity.entityProperties.position.z,
         };
+
+        //define identity checker
+        var entityIdentifier = new StageEntityIdentifier();
 
         var blockColor = that.options.block_color_base;
         var blockColorLum = -0.05 / that.options.levels;
@@ -221,20 +223,50 @@ StageBuilder = (function() {
 
                     script : that.options.block_script,
 
-                    userData : JSON.stringify({
+                    userData : {
                         isStageBlock: true,
-                        stageEntity : StageManager.managerEntity.id,
-                    }),
+                        stageEntity : StageManager.managerEntity.entity,
+                    },
                 };
-                var blockEntityCreated = Entities.addEntity(blockEntityProperties);
-                var blockEntity = Entities.identifyEntity(blockEntityCreated);
-                result.push(blockEntity);
+                
+                var blockEntity = new StageEntity({
+                    properties : blockEntityProperties,
+//                    callback : {
+//                        add : function() { print('add '+JSON.stringify(this)); },
+//                        identify: function() {print('identify '+JSON.stringify(this));},
+//                    },
+                });
+                entityIdentifier.entities.push(blockEntity);
             }
             if(blockColorLum !== 0) blockColor = colorLuminance(blockColor, blockColorLum);
         }
+        
+        //wait for identities and save blocks
+        entityIdentifier.process({
+            progress : function(identified, total){
+                StageInterface.webWindows.manage.emitScriptEvent({
+                    type: 'action',
+                    action: 'applyProgress',
+                    identified : identified,
+                    total: total,
+                });  
+            },
+            done : function(){
+                var blocks = [];
 
-    
-        return result;
+                for(var i in this.entities) {
+                    blocks.push(this.entities[i].entity);
+                }
+
+                var userData = StageManager.getUserData();
+                userData.blocks = blocks;
+                StageManager.setUserData(userData);
+                StageInterface.webWindows.manage.emitScriptEvent({
+                    type: 'action',
+                    action: 'applied',
+                });
+            }
+        });
     }
     
     that.clear = function() {
@@ -243,17 +275,22 @@ StageBuilder = (function() {
         var userData = StageManager.getUserData();
         if(userData.blocks) {
             for(var i in userData.blocks) {
-                var blockEntity = userData.blocks[i];
-                if (!blockEntity.isKnownID) {
-                    blockEntity = Entities.identifyEntity(blockEntity);
-                }
-                Entities.deleteEntity(blockEntity); 
+                //load and delete
+                new StageEntity({
+                    entity : userData.blocks[i],
+                    callback : {
+                        load : function() {
+                            this.remove(); 
+                        },
+                    },
+                });
             }
         }
-        
+/*        
         //delete from userData
         userData.blocks = [];
         StageManager.setUserData(userData);
+*/        
     }
     
     return that;
