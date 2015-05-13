@@ -14,7 +14,7 @@
 	
 	Script.include(BASE_URL + "app/Builder.js");
 	Script.include(BASE_URL + "app/Manager.js");
-	Script.include(BASE_URL + "app/interface.js");
+	Script.include(BASE_URL + "app/Interface.js");
 	
 
 	StageManager.searchForManagerEntity();
